@@ -1,0 +1,33 @@
+{
+  "name": "ItzNewsApi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "tsc",
+    "dev": "ts-node-dev --respawn --transpileOnly ./lib/app.ts",
+    "prod": "tsc && node ./build/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kleysonb/ItzNewsApi.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Kleysonb/ItzNewsApi/issues"
+  },
+  "homepage": "https://github.com/Kleysonb/ItzNewsApi#readme",
+  "dependencies": {
+    "@types/express": "^4.17.0",
+    "axios": "^0.19.0",
+    "express": "^4.17.1",
+    "ts-node-dev": "^1.0.0-pre.40",
+    "typescript": "^3.5.2"
+  },
+  "devDependencies": {
+    "@types/request-promise": "^4.1.44"
+  }
+}
