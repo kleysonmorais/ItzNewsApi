@@ -50,7 +50,7 @@ var DataPost = /** @class */ (function () {
             return {
                 id: post['id'],
                 title: post['title']['rendered'],
-                media_image: post['media_image'],
+                media_image: (post['media_image'] ? post['media_image'] : false),
                 date: post['date'],
                 content: post['content']['rendered'],
                 description: post['excerpt']['rendered'],
@@ -59,6 +59,11 @@ var DataPost = /** @class */ (function () {
                 origin: 'Imperatriz Notícias',
                 autor: 'Indefinido'
             };
+        }).filter(function (post) {
+            if (post.content != "") {
+                post.title = post.title.replace(/&#8221;/g, '”').replace(/&#8220;/g, '“');
+                return post;
+            }
         });
     };
     DataPost.parseJSON = function (text) {
@@ -82,8 +87,10 @@ var DataPost = /** @class */ (function () {
     DataPost.executeAllRequests = function (requests, posts) {
         return new Promise(function (resolve, reject) {
             axios_1.default.all(requests).then(function (dataMedia) {
-                var postPopulate = dataMedia.map(function (media) { return DataPost.parseJSON(media.data); })
-                    .map(function (mediaDetails, index) {
+                var postPopulate = dataMedia.map(function (media) {
+                    var mediaDetail = DataPost.parseJSON(media.data);
+                    return mediaDetail;
+                }).map(function (mediaDetails, index) {
                     var mediaDetail = {
                         title: mediaDetails['title']['rendered'],
                         sizes: mediaDetails['media_details']['sizes']
@@ -93,28 +100,13 @@ var DataPost = /** @class */ (function () {
                 });
                 resolve(postPopulate);
             }).catch(function (error) {
-                console.log(error);
-                reject({});
-            });
-        });
-    };
-    DataPost.getMediaImage = function (uri) {
-        return new Promise(function (resolve, reject) {
-            axios_1.default.get(uri)
-                .then(function (response) {
-                var mediaData = DataPost.parseJSON(response.data);
-                var mediaImage = { title: mediaData['title']['rendered'], sizes: mediaData['media_details']['sizes'] };
-                resolve(mediaImage);
-            })
-                .catch(function (error) {
-                console.log(error);
                 reject({});
             });
         });
     };
     return DataPost;
 }());
-app.get('/', function (req, res) {
+var getHome = function (req, res) {
     var fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
     res.json({
         self: fullUrl,
@@ -147,27 +139,8 @@ app.get('/', function (req, res) {
             description: "Retorna as 5 últimas notícias."
         },
     });
-});
-var resultSucess = function (response, result) { return __awaiter(_this, void 0, void 0, function () {
-    var posts, promiseArray, postsConstruct;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                posts = DataPost.parseJSON(result.data);
-                promiseArray = DataPost.getPromiseArrayUriImg(posts);
-                return [4 /*yield*/, DataPost.executeAllRequests(promiseArray.postsAxios, promiseArray.postsFilter)];
-            case 1:
-                postsConstruct = _a.sent();
-                response.json(DataPost.postFromMap(postsConstruct));
-                return [2 /*return*/];
-        }
-    });
-}); };
-var resultError = function (response, error) {
-    console.log(error);
-    response.send(500);
 };
-app.get('/posts', function (req, res) {
+var getPosts = function (req, res) {
     var uri = [];
     if (req.query.categories)
         uri.push("categories=" + req.query.categories);
@@ -183,14 +156,49 @@ app.get('/posts', function (req, res) {
         return [2 /*return*/, resultSucess(res, result)];
     }); }); })
         .catch(function (error) { return resultError(res, error); });
-});
-app.get('/posts/recents', function (req, res) {
+};
+var getPostsRecents = function (req, res) {
     axios_1.default.get('https://imperatriznoticias.ufma.br/wp-json/wp/v2/posts?per_page=5')
         .then(function (result) { return __awaiter(_this, void 0, void 0, function () { return __generator(this, function (_a) {
         return [2 /*return*/, resultSucess(res, result)];
     }); }); })
         .catch(function (error) { return resultError(res, error); });
-});
+};
+var resultSucess = function (response, result) { return __awaiter(_this, void 0, void 0, function () {
+    var posts, promiseArray, postsConstruct, msg_1;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                posts = DataPost.parseJSON(result.data);
+                promiseArray = DataPost.getPromiseArrayUriImg(posts);
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, DataPost.executeAllRequests(promiseArray.postsAxios, promiseArray.postsFilter)];
+            case 2:
+                postsConstruct = _a.sent();
+                response.json(DataPost.postFromMap(postsConstruct));
+                return [3 /*break*/, 4];
+            case 3:
+                msg_1 = _a.sent();
+                console.log(msg_1);
+                response.json(DataPost.postFromMap(posts));
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); };
+var resultError = function (response, error) {
+    console.log(error);
+    response.sendStatus(500);
+};
+// ----------------------------------------------------------------- //
+// Routers
+app.get('/', getHome);
+app.get('/posts', getPosts);
+app.get('/posts/recents', getPostsRecents);
+// ----------------------------------------------------------------- //
+// Server Config
 var port = process.env.PORT || 3000;
 app.listen(port, function () {
     console.log('Server running at http://127.0.0.1:' + port + '/');

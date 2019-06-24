@@ -10,7 +10,7 @@ class DataPost {
       return {
         id: post['id'],
         title: post['title']['rendered'],
-        media_image: post['media_image'],
+        media_image: (post['media_image'] ? post['media_image'] : false),
         date: post['date'],
         content: post['content']['rendered'],
         description: post['excerpt']['rendered'],
@@ -19,21 +19,11 @@ class DataPost {
         origin: 'Imperatriz Notícias',
         autor: 'Indefinido'
       }
-    })
-  }
-
-  static getMediaImage = (uri: string): Promise<any> => {
-    return new Promise((resolve, reject) => {
-      axios.get(uri)
-        .then(response => {
-          let mediaData = DataPost.parseJSON(response.data)
-          let mediaImage = { title: mediaData['title']['rendered'], sizes: mediaData['media_details']['sizes'] }
-          resolve(mediaImage)
-        })
-        .catch(error => {
-          console.log(error);
-          reject({})
-        });
+    }).filter(post => {
+      if (post.content != "") {
+        (<any>post.title) = (<any>post.title).replace(/&#8221;/g, '”').replace(/&#8220;/g, '“')
+        return post
+      }
     })
   }
 
@@ -60,25 +50,26 @@ class DataPost {
   static executeAllRequests(requests: any, posts: any) {
     return new Promise<any>((resolve, reject) => {
       axios.all(requests).then(dataMedia => {
-        let postPopulate = dataMedia.map(media => DataPost.parseJSON((<any>media).data))
-          .map((mediaDetails, index) => {
-            let mediaDetail = {
-              title: (<any>mediaDetails)['title']['rendered'],
-              sizes: (<any>mediaDetails)['media_details']['sizes']
-            }
-            posts[index]['media_image'] = mediaDetail
-            return posts[index]
-          });
+        let postPopulate = dataMedia.map(media => {
+          let mediaDetail = DataPost.parseJSON((<any>media).data)
+          return mediaDetail
+        }).map((mediaDetails, index) => {
+          let mediaDetail = {
+            title: (<any>mediaDetails)['title']['rendered'],
+            sizes: (<any>mediaDetails)['media_details']['sizes']
+          }
+          posts[index]['media_image'] = mediaDetail
+          return posts[index]
+        });
         resolve(postPopulate)
       }).catch(error => {
-        console.log(error)
         reject({})
       })
     })
   }
 }
 
-app.get('/', (req, res) => {
+const getHome: any = (req: any, res: any) => {
   var fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
   res.json({
     self: fullUrl,
@@ -111,21 +102,9 @@ app.get('/', (req, res) => {
       description: "Retorna as 5 últimas notícias."
     },
   })
-})
-
-const resultSucess: any = async (response: any, result: any) => {
-  let posts: [] = DataPost.parseJSON(result.data)
-  let promiseArray = DataPost.getPromiseArrayUriImg(posts)
-  let postsConstruct = await DataPost.executeAllRequests(promiseArray.postsAxios, promiseArray.postsFilter)
-  response.json(DataPost.postFromMap(postsConstruct))
 }
 
-const resultError: any = (response: any, error: any) => {
-  console.log(error)
-  response.send(500)
-}
-
-app.get('/posts', (req, res) => {
+const getPosts: any = (req: any, res: any) => {
   let uri = []
   if (req.query.categories) uri.push(`categories=${req.query.categories}`)
   if (req.query.search) uri.push(`search=${req.query.search}`)
@@ -135,16 +114,42 @@ app.get('/posts', (req, res) => {
   axios.get(`https://imperatriznoticias.ufma.br/wp-json/wp/v2/posts?${params}`)
     .then(async (result) => resultSucess(res, result))
     .catch(error => resultError(res, error));
-});
+}
 
-app.get('/posts/recents', (req, res) => {
+const getPostsRecents: any = (req: any, res: any) => {
   axios.get('https://imperatriznoticias.ufma.br/wp-json/wp/v2/posts?per_page=5')
     .then(async (result) => resultSucess(res, result))
     .catch(error => resultError(res, error));
-})
+}
+
+const resultSucess: any = async (response: any, result: any) => {
+  let posts: [] = DataPost.parseJSON(result.data)
+  let promiseArray = DataPost.getPromiseArrayUriImg(posts)
+  try {
+    let postsConstruct = await DataPost.executeAllRequests(promiseArray.postsAxios, promiseArray.postsFilter)
+    response.json(DataPost.postFromMap(postsConstruct))
+  } catch (msg) {
+    console.log(msg)
+    response.json(DataPost.postFromMap(posts))
+  }
+}
+
+const resultError: any = (response: any, error: any) => {
+  console.log(error)
+  response.sendStatus(500)
+}
+
+// ----------------------------------------------------------------- //
+// Routers
+
+app.get('/', getHome)
+app.get('/posts', getPosts);
+app.get('/posts/recents', getPostsRecents)
+
+// ----------------------------------------------------------------- //
+// Server Config
 
 var port = process.env.PORT || 3000
-
 app.listen(port, function () {
   console.log('Server running at http://127.0.0.1:' + port + '/');
 });
