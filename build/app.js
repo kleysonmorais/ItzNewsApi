@@ -50,7 +50,7 @@ var DataPost = /** @class */ (function () {
             return {
                 id: post['id'],
                 title: post['title']['rendered'],
-                media_image: (post['media_image'] ? post['media_image'] : false),
+                media_image: (post['media_image'] ? post['media_image'] : "Vazio"),
                 date: post['date'],
                 content: post['content']['rendered'],
                 description: post['excerpt']['rendered'],
